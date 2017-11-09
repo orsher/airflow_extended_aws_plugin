@@ -31,7 +31,8 @@ class ExtendedEmrCreateJobFlowOperator(BaseOperator):
                  aws_conn_id='s3_default',
                  api_params=None,
                  wait_for_status=None,
-                 save_livy_connection_name=None, **kwargs):
+                 save_livy_connection_name=None,
+                 use_public_ip_for_connections=False, **kwargs):
         """
 
         :param aws_conn_id: Airflow connection id specifying credentials to AWS account
@@ -47,6 +48,7 @@ class ExtendedEmrCreateJobFlowOperator(BaseOperator):
         self.api_params = api_params
         self.wait_for_status = wait_for_status
         self.save_livy_connection_name = save_livy_connection_name
+        self.use_public_ip_for_connections = use_public_ip_for_connections
 
     def execute(self, context):
         logging.info("Executing ExtendedEmrCreateJobFlowOperator")
@@ -85,7 +87,10 @@ class ExtendedEmrCreateJobFlowOperator(BaseOperator):
 
         if self.save_livy_connection_name is not None:
             instances_response = emr.list_instances(ClusterId=job_flow_id, InstanceGroupTypes=['MASTER'])
-            master_ip = instances_response['Instances'][0]['PublicIpAddress']
+            if self.use_public_ip_for_connections:
+                master_ip = instances_response['Instances'][0]['PublicIpAddress']
+            else:
+                master_ip = instances_response['Instances'][0]['PrivateIpAddress']
             ExtendedEmrCreateJobFlowOperator.create_or_replace_connection(connection_id=self.save_livy_connection_name,
                                                                           connection_type='Livy',
                                                                           ip="http://" + master_ip, port=8998, login='',
